@@ -1,25 +1,79 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Project 1"
+author: "Stefani Altamar"
+date: "28/09/2020"
+output:
+  md_document:
+    html_document
 ---
+### Preprocessing the data
 
+```{r}
+library("data.table")
+library(ggplot2)
+acti <- data.table::fread(input = "activity.csv" )
+```
 
-## Loading and preprocessing the data
+### What is mean total number of steps taken per day?
 
+```{r}
+Steps <- acti[, c(lapply(.SD, sum, na.rm = T)), .SDcols = c("steps"), by = .(date)] 
+head(Steps, 10)
+```
+### What is the average daily actiivity pattern?
 
+```{r}
+Interval <- acti[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c("steps"), by = .(interval)] 
+ggplot(Interval, aes(x = interval , y = steps)) + geom_line(color="orange", size=1) + labs(title = "Av Steps", x = "Inter", y = "Avg Steps",subtitle = 'Graphic')
+```
+### Imputing missing values
 
-## What is mean total number of steps taken per day?
+*1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with 𝙽𝙰s)*
 
+```{r}
+acti[is.na(steps), .N ]
+```
 
+*2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.*
 
-## What is the average daily activity pattern?
+```{r}
+acti[is.na(steps), "steps"] <- acti[, c(lapply(.SD, median, na.rm = TRUE)), .SDcols = c("steps")]
+```
 
+*3. Create a new dataset that is equal to the original dataset but with the missing data filled in.*
 
+```{r}
+data.table::fwrite(x = acti, file = "tidyData.csv", quote = FALSE)
+```
 
-## Imputing missing values
+*4. Make a histogram of the total number of steps taken each day and calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impacti of imputing missing data on the estimates of the total daily number of steps?*
 
+```{r}
+Steps <- acti[, c(lapply(.SD, sum)), .SDcols = c("steps"), by = .(date)] 
+Steps[, .(Mean_Steps = mean(steps), Median_Steps = median(steps))]
+ggplot(Steps, aes(x = steps)) + geom_histogram(color = 'orange', fill = 'white', binwidth = 1000) + labs(title = "Daily Steps", x = "steps", y = "f")
+```
+First Part(with na) | 10765 | 10765
+Second Part | 9354.23 | 10395
 
+### Are there differences in actiivity patterns between weekdays and weekends?
 
-## Are there differences in activity patterns between weekdays and weekends?
+*1. Create a new factior variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.*
+
+```{r}
+acti <- data.table::fread(input = "activity.csv")
+acti[, date := as.POSIXct(date, format = "%Y-%m-%d")]
+acti[, `Day of Week`:= weekdays(x = date)]
+acti[grepl(pattern = "Monday|Tuesday|Wednesday|Thursday|Friday", x = `Day of Week`), "weekday or weekend"] <- "weekday"
+acti[grepl(pattern = "Saturday|Sunday", x = `Day of Week`), "weekday or weekend"] <- "weekend"
+acti[, `weekday or weekend` := as.factor(`weekday or weekend`)]
+head(acti, 10)
+```
+
+*2. Make a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data. *
+
+```{r}
+acti[is.na(steps), "steps"] <- acti[, c(lapply(.SD, median, na.rm = TRUE)), .SDcols = c("steps")]
+Interval <- acti[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c("steps"), by = .(interval, `weekday or weekend`)] 
+ggplot(Interval , aes(x = interval , y = steps, color='orange')) + geom_line() + labs(title = "Avg. Daily Steps week", x = "Interval", y = "No. of Steps")
+```
